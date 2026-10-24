@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auto Photo Capture</title>
+  <title>Snapshot Capture</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,136 +14,152 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1.5rem 1rem;
+      justify-content: center;
+      padding: 1.5rem;
     }
-    h1 { font-size: 1.25rem; margin-bottom: 0.5rem; text-align: center; }
-    p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem; text-align: center; }
-    .display-area {
+    .card {
       width: 100%;
-      max-width: 400px;
-      aspect-ratio: 3/4;
+      max-width: 380px;
       background: #1e293b;
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid #334155;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+    h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    p { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.2rem; }
+    .preview-box {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: #0f172a;
       border-radius: 12px;
       overflow: hidden;
-      position: relative;
-      border: 1px solid #334155;
+      margin-bottom: 1.2rem;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid #334155;
+      position: relative;
     }
     video, img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    /* Hidden elements used for processing */
-    video { display: none; }
-    canvas { display: none; }
-
-    .status-text {
-      position: absolute;
-      bottom: 12px;
-      background: rgba(15, 23, 42, 0.8);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-    }
-    #fallbackBtn {
-      display: none;
-      margin-top: 1rem;
-      padding: 12px 24px;
-      background: #3b82f6;
-      color: #fff;
+    .action-btn {
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
     }
+    .action-btn:active { background: #1d4ed8; }
+    .status-badge {
+      position: absolute;
+      bottom: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    canvas { display: none; }
   </style>
 </head>
 <body>
 
-  <h1>Auto Capture Verification</h1>
-  <p class="sub">Grant camera permission to capture snapshot</p>
+  <div class="card">
+    <h2>Camera Capture</h2>
+    <p id="subText">Tap below to grant access and take a snapshot</p>
 
-  <div class="display-area">
-    <!-- Camera stream runs silently in background -->
-    <video id="videoFeed" playsinline autoplay muted></video>
-    
-    <!-- Rendered image output -->
-    <img id="photoOutput" alt="Photo will appear here after capture" />
-    
-    <div class="status-text" id="statusMsg">Requesting permission...</div>
+    <div class="preview-box">
+      <!-- Visible live preview while taking photo -->
+      <video id="viewfinder" autoplay playsinline muted></video>
+      <img id="resultImage" style="display:none;" alt="Captured Photo" />
+      <span class="status-badge" id="statusLabel">Ready</span>
+    </div>
+
+    <button id="triggerBtn" class="action-btn">Take Snapshot</button>
   </div>
 
-  <canvas id="snapshotCanvas"></canvas>
-
-  <!-- Fallback button if mobile OS blocks page-load requests -->
-  <button id="fallbackBtn">Tap to Allow Camera</button>
+  <canvas id="hiddenCanvas"></canvas>
 
   <script>
-    const video = document.getElementById('videoFeed');
-    const canvas = document.getElementById('snapshotCanvas');
-    const photoOutput = document.getElementById('photoOutput');
-    const statusMsg = document.getElementById('statusMsg');
-    const fallbackBtn = document.getElementById('fallbackBtn');
+    const video = document.getElementById('viewfinder');
+    const img = document.getElementById('resultImage');
+    const canvas = document.getElementById('hiddenCanvas');
+    const btn = document.getElementById('triggerBtn');
+    const statusLabel = document.getElementById('statusLabel');
+    const subText = document.getElementById('subText');
 
-    let streamCaptured = false;
+    let streamRef = null;
 
-    async function startCameraAndCapture() {
+    async function capture() {
+      btn.disabled = true;
+      statusLabel.textContent = "Requesting permission...";
+
       try {
-        statusMsg.textContent = "Waiting for permission...";
-        
-        // Request camera feed immediately
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" }, // Use "environment" for back camera
+          video: { facingMode: 'user' },
           audio: false
         });
 
+        streamRef = stream;
         video.srcObject = stream;
-        await video.play();
 
-        statusMsg.textContent = "Focusing camera...";
+        statusLabel.textContent = "Capturing...";
+        
+        // Wait until camera feed actually starts receiving frames
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.play();
+            resolve();
+          };
+        });
 
-        // Wait 600ms so camera hardware adjusts brightness/exposure before capture
+        // 400ms delay to let camera adjust auto-exposure/balance
         setTimeout(() => {
-          capturePhoto(stream);
-        }, 600);
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // Convert canvas capture to image
+          const photoData = canvas.toDataURL('image/jpeg', 0.9);
+          img.src = photoData;
+          img.style.display = 'block';
+          video.style.display = 'none';
+
+          // Turn off camera light immediately
+          stream.getTracks().forEach(t => t.stop());
+
+          statusLabel.textContent = "Photo Taken!";
+          subText.textContent = "Snapshot completed successfully.";
+          btn.style.display = 'none';
+        }, 400);
 
       } catch (err) {
-        console.error("Camera access failed:", err);
-        statusMsg.textContent = "Permission blocked or failed.";
-        fallbackBtn.style.display = "block";
+        console.error("Camera access error:", err);
+        statusLabel.textContent = "Access Denied / Failed";
+        subText.textContent = err.name + ": " + err.message;
+        btn.disabled = false;
+        btn.textContent = "Try Again";
       }
     }
 
-    function capturePhoto(stream) {
-      if (streamCaptured) return;
-      streamCaptured = true;
+    btn.addEventListener('click', capture);
 
-      // Match canvas resolution to actual video feed dimensions
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Convert frame to base64 image and display
-      const imageData = canvas.toDataURL('image/jpeg', 0.9);
-      photoOutput.src = imageData;
-
-      // Shut down camera hardware indicator light immediately
-      stream.getTracks().forEach(track => track.stop());
-
-      statusMsg.textContent = "Photo captured!";
-      fallbackBtn.style.display = "none";
-    }
-
-    fallbackBtn.addEventListener('click', () => {
-      fallbackBtn.style.display = "none";
-      startCameraAndCapture();
-    });
-
-    // Run immediately when page loads
+    // Also attempt prompt on load (works on desktop if permission was previously granted)
     window.addEventListener('DOMContentLoaded', () => {
+      // If user hasn't tapped yet, the button handles it cleanly
+      capture();
+    });
+  </script>
+
+</body>
+</html>
