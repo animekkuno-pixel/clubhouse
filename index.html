@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Snapshot Capture</title>
+  <title>Device Cam & Mic Test</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,152 +14,200 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 1.5rem;
+      padding: 1.5rem 1rem;
     }
-    .card {
+    h1 { font-size: 1.3rem; margin-bottom: 0.5rem; text-align: center; }
+    p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.2rem; text-align: center; }
+    .video-card {
       width: 100%;
-      max-width: 380px;
-      background: #1e293b;
-      border-radius: 16px;
-      padding: 1.5rem;
-      border: 1px solid #334155;
-      text-align: center;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-    h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
-    p { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.2rem; }
-    .preview-box {
-      width: 100%;
+      max-width: 420px;
       aspect-ratio: 3/4;
-      background: #0f172a;
-      border-radius: 12px;
+      background: #1e293b;
+      border-radius: 14px;
       overflow: hidden;
-      margin-bottom: 1.2rem;
+      position: relative;
+      border: 1px solid #334155;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 1px solid #334155;
-      position: relative;
     }
-    video, img {
+    video {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .action-btn {
+    .status-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    .dot.live { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .controls {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1.2rem;
+    }
+    button {
       width: 100%;
       padding: 14px;
-      background: #2563eb;
-      color: white;
-      border: none;
       border-radius: 10px;
+      border: none;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
+      transition: opacity 0.2s;
     }
-    .action-btn:active { background: #1d4ed8; }
-    .status-badge {
-      position: absolute;
-      bottom: 10px;
-      background: rgba(15, 23, 42, 0.85);
-      font-size: 0.75rem;
-      padding: 4px 10px;
-      border-radius: 20px;
+    button:active { opacity: 0.8; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-secondary { background: #334155; color: #f8fafc; }
+    .audio-meter {
+      width: 100%;
+      height: 12px;
+      background: #1e293b;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #334155;
     }
-    canvas { display: none; }
+    .audio-bar {
+      height: 100%;
+      width: 0%;
+      background: #10b981;
+      transition: width 0.05s linear;
+    }
+    .debug-log {
+      width: 100%;
+      max-width: 420px;
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      background: #020617;
+      padding: 0.8rem;
+      border-radius: 8px;
+      min-height: 48px;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>Camera Capture</h2>
-    <p id="subText">Tap below to grant access and take a snapshot</p>
+  <h1>Hardware Stream Test</h1>
+  <p class="sub">Open on your phone to test camera & mic permissions</p>
 
-    <div class="preview-box">
-      <!-- Visible live preview while taking photo -->
-      <video id="viewfinder" autoplay playsinline muted></video>
-      <img id="resultImage" style="display:none;" alt="Captured Photo" />
-      <span class="status-badge" id="statusLabel">Ready</span>
+  <div class="video-card">
+    <div class="status-badge">
+      <div class="dot" id="liveDot"></div>
+      <span id="statusText">Offline</span>
     </div>
-
-    <button id="triggerBtn" class="action-btn">Take Snapshot</button>
+    <video id="viewfinder" autoplay playsinline muted></video>
   </div>
 
-  <canvas id="hiddenCanvas"></canvas>
+  <div class="controls">
+    <div class="audio-meter">
+      <div class="audio-bar" id="audioBar"></div>
+    </div>
+    <button class="btn-primary" id="startBtn">Enable Camera & Mic</button>
+    <button class="btn-secondary" id="switchBtn" style="display:none;">Flip Camera (Front / Back)</button>
+  </div>
+
+  <div class="debug-log" id="debugLog">Ready. Click 'Enable Camera & Mic' above.</div>
 
   <script>
+    const startBtn = document.getElementById('startBtn');
+    const switchBtn = document.getElementById('switchBtn');
     const video = document.getElementById('viewfinder');
-    const img = document.getElementById('resultImage');
-    const canvas = document.getElementById('hiddenCanvas');
-    const btn = document.getElementById('triggerBtn');
-    const statusLabel = document.getElementById('statusLabel');
-    const subText = document.getElementById('subText');
+    const liveDot = document.getElementById('liveDot');
+    const statusText = document.getElementById('statusText');
+    const audioBar = document.getElementById('audioBar');
+    const debugLog = document.getElementById('debugLog');
 
-    let streamRef = null;
+    let currentStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let sourceNode = null;
+    let facingMode = 'user'; // 'user' (front) or 'environment' (back)
 
-    async function capture() {
-      btn.disabled = true;
-      statusLabel.textContent = "Requesting permission...";
+    function log(msg) {
+      debugLog.textContent = msg;
+    }
+
+    async function initStream() {
+      // Clean up previous tracks if toggling
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
 
       try {
+        log("Requesting camera & mic permissions...");
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false
+          video: { facingMode: facingMode },
+          audio: true
         });
 
-        streamRef = stream;
+        currentStream = stream;
         video.srcObject = stream;
 
-        statusLabel.textContent = "Capturing...";
-        
-        // Wait until camera feed actually starts receiving frames
-        await new Promise(resolve => {
-          video.onloadedmetadata = () => {
-            video.play();
-            resolve();
-          };
-        });
+        // UI states
+        liveDot.classList.add('live');
+        statusText.textContent = "Live Stream Active";
+        startBtn.style.display = "none";
+        switchBtn.style.display = "block";
+        log("Connected: Camera (" + facingMode + ") & Microphone active.");
 
-        // 400ms delay to let camera adjust auto-exposure/balance
-        setTimeout(() => {
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 480;
+        // Audio Visualizer
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
 
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        sourceNode = audioContext.createMediaStreamSource(stream);
+        sourceNode.connect(analyser);
 
-          // Convert canvas capture to image
-          const photoData = canvas.toDataURL('image/jpeg', 0.9);
-          img.src = photoData;
-          img.style.display = 'block';
-          video.style.display = 'none';
-
-          // Turn off camera light immediately
-          stream.getTracks().forEach(t => t.stop());
-
-          statusLabel.textContent = "Photo Taken!";
-          subText.textContent = "Snapshot completed successfully.";
-          btn.style.display = 'none';
-        }, 400);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        function updateAudio() {
+          if (!currentStream) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          let avg = sum / dataArray.length;
+          let pct = Math.min(100, Math.round((avg / 128) * 100));
+          audioBar.style.width = pct + "%";
+          requestAnimationFrame(updateAudio);
+        }
+        updateAudio();
 
       } catch (err) {
-        console.error("Camera access error:", err);
-        statusLabel.textContent = "Access Denied / Failed";
-        subText.textContent = err.name + ": " + err.message;
-        btn.disabled = false;
-        btn.textContent = "Try Again";
+        log("Error: " + err.name + " - " + err.message);
+        statusText.textContent = "Permission Denied";
       }
     }
 
-    btn.addEventListener('click', capture);
+    startBtn.addEventListener('click', () => initStream());
 
-    // Also attempt prompt on load (works on desktop if permission was previously granted)
-    window.addEventListener('DOMContentLoaded', () => {
-      // If user hasn't tapped yet, the button handles it cleanly
-      capture();
+    switchBtn.addEventListener('click', () => {
+      facingMode = facingMode === 'user' ? 'environment' : 'user';
+      initStream();
     });
   </script>
-
 </body>
 </html>
