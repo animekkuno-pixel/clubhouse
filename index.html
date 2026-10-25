@@ -1,212 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Device Cam & Mic Test</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supabase Snapshot Upload</title>
+  <!-- Load Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f172a;
-      color: #f8fafc;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1.5rem 1rem;
-    }
-    h1 { font-size: 1.3rem; margin-bottom: 0.5rem; text-align: center; }
-    p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.2rem; text-align: center; }
-    .video-card {
-      width: 100%;
-      max-width: 420px;
-      aspect-ratio: 3/4;
-      background: #1e293b;
-      border-radius: 14px;
-      overflow: hidden;
-      position: relative;
-      border: 1px solid #334155;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .status-badge {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(4px);
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #ef4444;
-    }
-    .dot.live { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-    .controls {
-      width: 100%;
-      max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-      margin-top: 1.2rem;
-    }
-    button {
-      width: 100%;
-      padding: 14px;
-      border-radius: 10px;
-      border: none;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    button:active { opacity: 0.8; }
-    .btn-primary { background: #3b82f6; color: #fff; }
-    .btn-secondary { background: #334155; color: #f8fafc; }
-    .audio-meter {
-      width: 100%;
-      height: 12px;
-      background: #1e293b;
-      border-radius: 6px;
-      overflow: hidden;
-      border: 1px solid #334155;
-    }
-    .audio-bar {
-      height: 100%;
-      width: 0%;
-      background: #10b981;
-      transition: width 0.05s linear;
-    }
-    .debug-log {
-      width: 100%;
-      max-width: 420px;
-      margin-top: 1rem;
-      font-size: 0.8rem;
-      color: #94a3b8;
-      background: #020617;
-      padding: 0.8rem;
-      border-radius: 8px;
-      min-height: 48px;
-      word-break: break-all;
-    }
+    body { font-family: sans-serif; background: #0f172a; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
+    .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; max-width: 360px; width: 100%; text-align: center; }
+    .preview { width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 8px; overflow: hidden; margin: 1rem 0; }
+    video, img { width: 100%; height: 100%; object-fit: cover; }
+    button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.5; }
+    #status { margin-top: 10px; font-size: 0.85rem; color: #94a3b8; }
+    .consent-box { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin: 0.75rem 0; text-align: left; }
+    canvas { display: none; }
   </style>
 </head>
 <body>
 
-  <h1>Hardware Stream Test</h1>
-  <p class="sub">Open on your phone to test camera & mic permissions</p>
-
-  <div class="video-card">
-    <div class="status-badge">
-      <div class="dot" id="liveDot"></div>
-      <span id="statusText">Offline</span>
+  <div class="card">
+    <h3>Capture & Cloud Upload</h3>
+    <div class="preview">
+      <video id="viewfinder" autoplay playsinline muted></video>
+      <img id="snapshot" style="display:none;" />
     </div>
-    <video id="viewfinder" autoplay playsinline muted></video>
+
+    <button id="cameraBtn">1. Enable Camera</button>
+    <button id="snapBtn" style="display:none;">2. Take Photo</button>
+
+    <div id="uploadSection" style="display:none;">
+      <label class="consent-box">
+        <input type="checkbox" id="consentCheck">
+        <span>I agree to upload this photo to cloud storage.</span>
+      </label>
+      <button id="uploadBtn" disabled>3. Upload Photo</button>
+    </div>
+
+    <div id="status">Tap 'Enable Camera' to start.</div>
   </div>
 
-  <div class="controls">
-    <div class="audio-meter">
-      <div class="audio-bar" id="audioBar"></div>
-    </div>
-    <button class="btn-primary" id="startBtn">Enable Camera & Mic</button>
-    <button class="btn-secondary" id="switchBtn" style="display:none;">Flip Camera (Front / Back)</button>
-  </div>
-
-  <div class="debug-log" id="debugLog">Ready. Click 'Enable Camera & Mic' above.</div>
+  <canvas id="hiddenCanvas"></canvas>
 
   <script>
-    const startBtn = document.getElementById('startBtn');
-    const switchBtn = document.getElementById('switchBtn');
+    // 1. CONFIGURATION (Replace with your Supabase credentials)
+    const SUPABASE_URL = https://ktndgkoenqqbxkyjxqvf.supabase.co;
+    const SUPABASE_KEY = sb_publishable_XMZ7gEzSGmww9RRxGhXg5w_Hz_9a4X6;
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
     const video = document.getElementById('viewfinder');
-    const liveDot = document.getElementById('liveDot');
-    const statusText = document.getElementById('statusText');
-    const audioBar = document.getElementById('audioBar');
-    const debugLog = document.getElementById('debugLog');
+    const img = document.getElementById('snapshot');
+    const canvas = document.getElementById('hiddenCanvas');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const snapBtn = document.getElementById('snapBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadSection = document.getElementById('uploadSection');
+    const consentCheck = document.getElementById('consentCheck');
+    const status = document.getElementById('status');
 
-    let currentStream = null;
-    let audioContext = null;
-    let analyser = null;
-    let sourceNode = null;
-    let facingMode = 'user'; // 'user' (front) or 'environment' (back)
+    let capturedBlob = null;
+    let streamRef = null;
 
-    function log(msg) {
-      debugLog.textContent = msg;
-    }
-
-    async function initStream() {
-      // Clean up previous tracks if toggling
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-
+    cameraBtn.addEventListener('click', async () => {
+      cameraBtn.disabled = true;
       try {
-        log("Requesting camera & mic permissions...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode },
-          audio: true
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        streamRef = stream;
+        video.srcObject = stream;
+        cameraBtn.style.display = 'none';
+        snapBtn.style.display = 'block';
+        status.textContent = "Camera ready. Tap 'Take Photo'.";
+      } catch (err) {
+        status.textContent = "Camera access denied: " + err.message;
+        cameraBtn.disabled = false;
+      }
+    });
+
+    snapBtn.addEventListener('click', () => {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(blob => {
+        capturedBlob = blob;
+        img.src = URL.createObjectURL(blob);
+        img.style.display = 'block';
+        video.style.display = 'none';
+        snapBtn.style.display = 'none';
+        uploadSection.style.display = 'block';
+
+        if (streamRef) streamRef.getTracks().forEach(t => t.stop());
+        status.textContent = "Check consent to upload.";
+      }, 'image/jpeg', 0.85);
+    });
+
+    consentCheck.addEventListener('change', () => {
+      uploadBtn.disabled = !consentCheck.checked || !capturedBlob;
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      uploadBtn.disabled = true;
+      status.textContent = "Uploading to Supabase Storage...";
+
+      const fileName = `snapshot_${Date.now()}.jpg`;
+
+      // Upload directly into the 'photos' bucket
+      const { data, error } = await supabase.storage
+        .from('photos')
+        .upload(fileName, capturedBlob, {
+          contentType: 'image/jpeg'
         });
 
-        currentStream = stream;
-        video.srcObject = stream;
-
-        // UI states
-        liveDot.classList.add('live');
-        statusText.textContent = "Live Stream Active";
-        startBtn.style.display = "none";
-        switchBtn.style.display = "block";
-        log("Connected: Camera (" + facingMode + ") & Microphone active.");
-
-        // Audio Visualizer
-        if (!audioContext) {
-          audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume();
-        }
-
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 64;
-        sourceNode = audioContext.createMediaStreamSource(stream);
-        sourceNode.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        function updateAudio() {
-          if (!currentStream) return;
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          let avg = sum / dataArray.length;
-          let pct = Math.min(100, Math.round((avg / 128) * 100));
-          audioBar.style.width = pct + "%";
-          requestAnimationFrame(updateAudio);
-        }
-        updateAudio();
-
-      } catch (err) {
-        log("Error: " + err.name + " - " + err.message);
-        statusText.textContent = "Permission Denied";
+      if (error) {
+        status.textContent = "Upload failed: " + error.message;
+        uploadBtn.disabled = false;
+      } else {
+        status.textContent = `Uploaded successfully as: ${fileName}`;
       }
-    }
-
-    startBtn.addEventListener('click', () => initStream());
-
-    switchBtn.addEventListener('click', () => {
-      facingMode = facingMode === 'user' ? 'environment' : 'user';
-      initStream();
     });
   </script>
 </body>
