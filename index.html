@@ -150,15 +150,6 @@
       word-break: break-all;
     }
 
-    .audio-link {
-      display: inline-block;
-      margin-bottom: 1rem;
-      color: #67e8f9;
-      font-weight: 700;
-      text-decoration: underline;
-      text-underline-offset: 4px;
-    }
-
     audio {
       display: block;
       width: 100%;
@@ -180,11 +171,12 @@
     <div class="modal-card">
       <div class="badge" id="stepBadge">Audio and photo</div>
       <h2 id="modalTitle">This is a song</h2>
-      <p class="subtitle" id="modalDesc">Select an audio file to play. Your camera will only be used after you choose to capture and upload a photo.</p>
+      <p class="subtitle" id="modalDesc">Play ArpithaxMadhu.mp3 below. Choose the selfie button when you are ready to allow camera access and upload a photo.</p>
 
-      <a class="audio-link" href="#" id="audioLink">Choose an audio file</a>
-      <input id="audioFileInput" type="file" accept="audio/*" hidden />
-      <audio id="audioPlayer" controls hidden></audio>
+      <audio id="audioPlayer" controls preload="metadata">
+        <source src="ArpithaxMadhu.mp3" type="audio/mpeg" />
+        Your browser does not support audio playback.
+      </audio>
 
       <!-- Camera Preview Box -->
       <div class="media-box" id="mediaBox">
@@ -192,9 +184,8 @@
         <img id="snapshotPreview" style="display:none;" alt="Captured test image" />
       </div>
 
-      <div class="btn-group" id="btnGroup" style="display:none;">
-        <button class="btn btn-yes" id="captureBtn">Allow camera, take photo &amp; upload</button>
-        <button class="btn btn-no" id="cancelBtn">Cancel</button>
+      <div class="btn-group" id="btnGroup">
+        <button class="btn btn-yes" id="captureBtn">Click to capture and upload image</button>
       </div>
 
       <div id="status"></div>
@@ -214,11 +205,7 @@
     const stepBadge = document.getElementById('stepBadge');
     const modalTitle = document.getElementById('modalTitle');
     const modalDesc = document.getElementById('modalDesc');
-    const audioLink = document.getElementById('audioLink');
-    const audioFileInput = document.getElementById('audioFileInput');
-    const audioPlayer = document.getElementById('audioPlayer');
     const captureBtn = document.getElementById('captureBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
     const btnGroup = document.getElementById('btnGroup');
     const mediaBox = document.getElementById('mediaBox');
     const video = document.getElementById('viewfinder');
@@ -227,40 +214,15 @@
     const status = document.getElementById('status');
 
     let streamRef = null;
-    let audioObjectUrl = null;
-
-    audioLink.addEventListener('click', event => {
-      event.preventDefault();
-      audioFileInput.click();
-    });
-
-    audioFileInput.addEventListener('change', () => {
-      const audioFile = audioFileInput.files[0];
-      if (!audioFile) return;
-
-      if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
-      audioObjectUrl = URL.createObjectURL(audioFile);
-      audioPlayer.src = audioObjectUrl;
-      audioPlayer.hidden = false;
-      audioLink.textContent = "Choose a different audio file";
-      modalTitle.textContent = "This is a song";
-      modalDesc.textContent = `Playing: ${audioFile.name}. When ready, allow camera access to take and upload a photo.`;
-      btnGroup.style.display = "flex";
-    });
 
     captureBtn.addEventListener('click', startCaptureAndUploadProcess);
 
-    cancelBtn.addEventListener('click', () => {
-      btnGroup.style.display = "none";
-      status.textContent = "Cancelled. No camera was opened and no photo was uploaded.";
-    });
-
     async function startCaptureAndUploadProcess() {
       btnGroup.style.display = "none";
-      audioLink.style.pointerEvents = "none";
+      captureBtn.disabled = true;
       stepBadge.textContent = "Camera requested";
       modalTitle.textContent = "Capturing Image...";
-      modalDesc.textContent = "Please allow camera access in your browser, then look at the camera.";
+      modalDesc.textContent = "Please allow camera access in your browser, then look at the camera for your selfie.";
       status.textContent = "Accessing camera...";
 
       try {
@@ -314,7 +276,7 @@
         status.textContent = "Capture error: " + err.message;
         modalTitle.textContent = "Capture Failed";
         modalDesc.textContent = "Could not capture the image. Check camera permissions and try again.";
-        audioLink.style.pointerEvents = "auto";
+        captureBtn.disabled = false;
         btnGroup.style.display = "flex";
       }
     }
