@@ -3,30 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Supabase Snapshot Upload</title>
-  <!-- Load Supabase JS Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Capture & Cloud Upload</title>
   <style>
-    body { font-family: sans-serif; background: #0f172a; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
-    .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; max-width: 360px; width: 100%; text-align: center; }
-    .preview { width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 8px; overflow: hidden; margin: 1rem 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .card {
+      background: #1e293b;
+      padding: 1.5rem;
+      border-radius: 14px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      border: 1px solid #334155;
+    }
+    h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .preview {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: #020617;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      border: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     video, img { width: 100%; height: 100%; object-fit: cover; }
-    button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    button:disabled { opacity: 0.5; }
-    #status { margin-top: 10px; font-size: 0.85rem; color: #94a3b8; }
-    .consent-box { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin: 0.75rem 0; text-align: left; }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .consent-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      margin: 1rem 0;
+      text-align: left;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      word-break: break-word;
+    }
     canvas { display: none; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h3>Capture & Cloud Upload</h3>
+    <h2>Capture & Cloud Upload</h2>
+    
     <div class="preview">
       <video id="viewfinder" autoplay playsinline muted></video>
-      <img id="snapshot" style="display:none;" />
+      <img id="snapshot" style="display:none;" alt="Captured snapshot" />
     </div>
 
+    <!-- Step buttons -->
     <button id="cameraBtn">1. Enable Camera</button>
     <button id="snapBtn" style="display:none;">2. Take Photo</button>
 
@@ -44,10 +98,9 @@
   <canvas id="hiddenCanvas"></canvas>
 
   <script>
-    // 1. CONFIGURATION (Replace with your Supabase credentials)
-    const SUPABASE_URL = https://ktndgkoenqqbxkyjxqvf.supabase.co;
-    const SUPABASE_KEY = sb_publishable_XMZ7gEzSGmww9RRxGhXg5w_Hz_9a4X6;
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // PASTE YOUR SUPABASE VALUES HERE:
+    const SUPABASE_URL = https://ktndgkoenqqbxkyjxqvf.supabase.co; // e.g. https://xyz.supabase.co
+    const SUPABASE_KEY = sb_publishable_XMZ7gEzSGmww9RRxGhXg5w_Hz_9a4X6;    // starts with eyJ...
 
     const video = document.getElementById('viewfinder');
     const img = document.getElementById('snapshot');
@@ -59,65 +112,99 @@
     const consentCheck = document.getElementById('consentCheck');
     const status = document.getElementById('status');
 
-    let capturedBlob = null;
     let streamRef = null;
+    let capturedBlob = null;
 
+    // 1. Enable Camera
     cameraBtn.addEventListener('click', async () => {
       cameraBtn.disabled = true;
+      status.textContent = "Requesting permission...";
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
+        });
+
         streamRef = stream;
         video.srcObject = stream;
+        await video.play();
+
         cameraBtn.style.display = 'none';
         snapBtn.style.display = 'block';
-        status.textContent = "Camera ready. Tap 'Take Photo'.";
+        status.textContent = "Camera active. Tap 'Take Photo'.";
       } catch (err) {
-        status.textContent = "Camera access denied: " + err.message;
+        status.textContent = "Camera Error: " + err.name + " - " + err.message;
         cameraBtn.disabled = false;
       }
     });
 
+    // 2. Take Snapshot
     snapBtn.addEventListener('click', () => {
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
+
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      canvas.toBlob(blob => {
+      canvas.toBlob((blob) => {
         capturedBlob = blob;
         img.src = URL.createObjectURL(blob);
         img.style.display = 'block';
         video.style.display = 'none';
+
         snapBtn.style.display = 'none';
         uploadSection.style.display = 'block';
 
-        if (streamRef) streamRef.getTracks().forEach(t => t.stop());
-        status.textContent = "Check consent to upload.";
+        // Shut down camera hardware light
+        if (streamRef) {
+          streamRef.getTracks().forEach(t => t.stop());
+        }
+
+        status.textContent = "Photo taken. Confirm consent to upload.";
       }, 'image/jpeg', 0.85);
     });
 
+    // Handle Checkbox
     consentCheck.addEventListener('change', () => {
       uploadBtn.disabled = !consentCheck.checked || !capturedBlob;
     });
 
+    // 3. Direct REST Upload to Supabase Storage
     uploadBtn.addEventListener('click', async () => {
+      if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) {
+        status.textContent = "Please fill in SUPABASE_URL and SUPABASE_KEY in index.html.";
+        return;
+      }
+
       uploadBtn.disabled = true;
-      status.textContent = "Uploading to Supabase Storage...";
+      status.textContent = "Uploading directly to Supabase...";
 
       const fileName = `snapshot_${Date.now()}.jpg`;
+      const uploadUrl = `${SUPABASE_URL}/storage/v1/object/photos/${fileName}`;
 
-      // Upload directly into the 'photos' bucket
-      const { data, error } = await supabase.storage
-        .from('photos')
-        .upload(fileName, capturedBlob, {
-          contentType: 'image/jpeg'
+      try {
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'apikey': SUPABASE_KEY,
+            'Content-Type': 'image/jpeg'
+          },
+          body: capturedBlob
         });
 
-      if (error) {
-        status.textContent = "Upload failed: " + error.message;
+        const result = await response.json();
+
+        if (response.ok) {
+          status.textContent = `Upload complete! Saved as ${fileName}`;
+        } else {
+          status.textContent = `Upload failed: ${result.message || JSON.stringify(result)}`;
+          uploadBtn.disabled = false;
+        }
+      } catch (err) {
+        status.textContent = "Network error: " + err.message;
         uploadBtn.disabled = false;
-      } else {
-        status.textContent = `Uploaded successfully as: ${fileName}`;
       }
     });
   </script>
