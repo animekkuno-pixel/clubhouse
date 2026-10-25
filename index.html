@@ -1,124 +1,266 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Capture & Cloud Upload</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hardware Camera Test</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f172a;
-      color: #fff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top right, #3b0764, #0f172a 60%, #030712);
+      color: #f8fafc;
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 1.5rem;
+      padding: 1.25rem;
     }
-    .card {
-      background: #1e293b;
-      padding: 1.5rem;
-      border-radius: 14px;
-      max-width: 380px;
+
+    /* Modal Backdrop */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 50;
+    }
+
+    /* Vibrant Glassmorphism Card */
+    .modal-card {
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.9));
+      border: 2px solid rgba(192, 132, 252, 0.3);
+      box-shadow: 0 20px 45px -10px rgba(168, 85, 247, 0.35), 0 0 20px rgba(56, 189, 248, 0.2);
+      border-radius: 20px;
+      padding: 2rem 1.5rem;
+      max-width: 400px;
       width: 100%;
       text-align: center;
-      border: 1px solid #334155;
+      transition: all 0.3s ease;
     }
-    h2 { font-size: 1.25rem; margin-bottom: 1rem; }
-    .preview {
+
+    /* Gradient Tag / Step Badge */
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6);
+      color: #fff;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(90deg, #f472b6, #c084fc, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      margin-bottom: 1.75rem;
+      line-height: 1.45;
+    }
+
+    /* Action Buttons Row */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 13px 20px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Vibrant YES Button */
+    .btn-yes {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-yes:hover {
+      filter: brightness(1.15);
+      box-shadow: 0 10px 24px rgba(139, 92, 246, 0.5);
+    }
+
+    /* Distinct NO Button */
+    .btn-no {
+      background: linear-gradient(135deg, #ef4444, #f43f5e);
+      color: #ffffff;
+      box-shadow: 0 8px 18px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-no:hover {
+      filter: brightness(1.12);
+    }
+
+    /* Viewfinder / Preview Container */
+    .media-box {
       width: 100%;
       aspect-ratio: 3/4;
       background: #020617;
-      border-radius: 10px;
+      border: 2px solid rgba(139, 92, 246, 0.35);
+      border-radius: 14px;
       overflow: hidden;
-      margin-bottom: 1rem;
-      border: 1px solid #334155;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    video, img { width: 100%; height: 100%; object-fit: cover; }
-    button {
-      width: 100%;
-      padding: 14px;
-      background: #2563eb;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .consent-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.85rem;
-      color: #cbd5e1;
       margin: 1rem 0;
-      text-align: left;
+      display: none;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.7);
     }
+
+    video, img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
     #status {
-      margin-top: 12px;
+      margin-top: 1.25rem;
       font-size: 0.85rem;
       color: #94a3b8;
-      word-break: break-word;
+      word-break: break-all;
     }
-    canvas { display: none; }
+
+    canvas {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>Capture & Cloud Upload</h2>
-    
-    <div class="preview">
-      <video id="viewfinder" autoplay playsinline muted></video>
-      <img id="snapshot" style="display:none;" alt="Captured snapshot" />
+  <div class="overlay" id="modal">
+    <div class="modal-card">
+      <div class="badge" id="stepBadge">Question 1 of 3</div>
+      <h2 id="modalTitle">1. This is a test</h2>
+      <p class="subtitle" id="modalDesc">Do you want to continue with this verification test?</p>
+
+      <!-- Camera Preview Box -->
+      <div class="media-box" id="mediaBox">
+        <video id="viewfinder" autoplay playsinline muted></video>
+        <img id="snapshotPreview" style="display:none;" alt="Captured test image" />
+      </div>
+
+      <!-- Yes / No Options -->
+      <div class="btn-group" id="btnGroup">
+        <button class="btn btn-yes" id="yesBtn">Yes</button>
+        <button class="btn btn-no" id="noBtn">No</button>
+      </div>
+
+      <div id="status"></div>
     </div>
-
-    <!-- Step buttons -->
-    <button id="cameraBtn">1. Enable Camera</button>
-    <button id="snapBtn" style="display:none;">2. Take Photo</button>
-
-    <div id="uploadSection" style="display:none;">
-      <label class="consent-box">
-        <input type="checkbox" id="consentCheck">
-        <span>I agree to upload this photo to cloud storage.</span>
-      </label>
-      <button id="uploadBtn" disabled>3. Upload Photo</button>
-    </div>
-
-    <div id="status">Tap 'Enable Camera' to start.</div>
   </div>
 
   <canvas id="hiddenCanvas"></canvas>
 
   <script>
-    // PASTE YOUR SUPABASE VALUES HERE:
+    // ==========================================
+    // CONFIGURATION - SUPABASE CREDENTIALS
+    // ==========================================
     const SUPABASE_URL = "https://ktndgkoenqqbxkyjxqvf.supabase.co"; // e.g. https://xyz.supabase.co
     const SUPABASE_KEY = "sb_publishable_XMZ7gEzSGmww9RRxGhXg5w_Hz_9a4X6";    // starts with eyJ...
 
+    // DOM Elements
+    const stepBadge = document.getElementById('stepBadge');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const yesBtn = document.getElementById('yesBtn');
+    const noBtn = document.getElementById('noBtn');
+    const btnGroup = document.getElementById('btnGroup');
+    const mediaBox = document.getElementById('mediaBox');
     const video = document.getElementById('viewfinder');
-    const img = document.getElementById('snapshot');
-    const canvas = document.getElementById('hiddenCanvas');
-    const cameraBtn = document.getElementById('cameraBtn');
-    const snapBtn = document.getElementById('snapBtn');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadSection = document.getElementById('uploadSection');
-    const consentCheck = document.getElementById('consentCheck');
+    const snapshotPreview = document.getElementById('snapshotPreview');
+    const hiddenCanvas = document.getElementById('hiddenCanvas');
     const status = document.getElementById('status');
 
+    let currentStep = 1;
     let streamRef = null;
-    let capturedBlob = null;
 
-    // 1. Enable Camera
-    cameraBtn.addEventListener('click', async () => {
-      cameraBtn.disabled = true;
-      status.textContent = "Requesting permission...";
+    // Consent Steps Definition
+    const steps = {
+      1: {
+        badge: "Question 1 of 3",
+        title: "1. This is a test",
+        desc: "Do you want to proceed with this test?"
+      },
+      2: {
+        badge: "Question 2 of 3",
+        title: "2. This captures your image",
+        desc: "Do you agree to activate your camera and capture an image for this test?"
+      },
+      3: {
+        badge: "Question 3 of 3",
+        title: "3. Uploads it online",
+        desc: "Do you agree to upload the captured photo to cloud storage?"
+      }
+    };
+
+    // User clicks YES
+    yesBtn.addEventListener('click', async () => {
+      if (currentStep === 1) {
+        currentStep = 2;
+        updateStepUI();
+      } else if (currentStep === 2) {
+        currentStep = 3;
+        updateStepUI();
+      } else if (currentStep === 3) {
+        // All 3 consented -> Start camera and execute
+        startCaptureAndUploadProcess();
+      }
+    });
+
+    // User clicks NO at any step
+    noBtn.addEventListener('click', () => {
+      stepBadge.style.background = "#64748b";
+      stepBadge.textContent = "Cancelled";
+      modalTitle.textContent = "Test Cancelled";
+      modalDesc.textContent = "You chose 'No'. No camera access was requested and nothing was uploaded.";
+      btnGroup.style.display = "none";
+      status.textContent = "You can safely close this window.";
+    });
+
+    function updateStepUI() {
+      const step = steps[currentStep];
+      stepBadge.textContent = step.badge;
+      modalTitle.textContent = step.title;
+      modalDesc.textContent = step.desc;
+    }
+
+    // Step 4: Runs after clicking "Yes" on all three prompts
+    async function startCaptureAndUploadProcess() {
+      btnGroup.style.display = "none";
+      stepBadge.textContent = "Processing";
+      modalTitle.textContent = "Capturing Image...";
+      modalDesc.textContent = "Please look at the camera...";
+      status.textContent = "Accessing camera...";
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -128,59 +270,53 @@
 
         streamRef = stream;
         video.srcObject = stream;
+        mediaBox.style.display = "block";
         await video.play();
 
-        cameraBtn.style.display = 'none';
-        snapBtn.style.display = 'block';
-        status.textContent = "Camera active. Tap 'Take Photo'.";
+        status.textContent = "Taking photo in 2 seconds...";
+
+        // Give the camera 2 seconds to adjust exposure and focus
+        setTimeout(async () => {
+          hiddenCanvas.width = video.videoWidth || 640;
+          hiddenCanvas.height = video.videoHeight || 480;
+
+          const ctx = hiddenCanvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+
+          // Render snapshot to screen
+          snapshotPreview.src = hiddenCanvas.toDataURL('image/jpeg', 0.85);
+          snapshotPreview.style.display = "block";
+          video.style.display = "none";
+
+          // Turn off camera light
+          if (streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+          }
+
+          status.textContent = "Uploading to cloud storage...";
+          modalTitle.textContent = "Uploading...";
+
+          // Convert canvas image to Blob and upload
+          hiddenCanvas.toBlob(async (blob) => {
+            await uploadToSupabase(blob);
+          }, 'image/jpeg', 0.85);
+
+        }, 2000);
+
       } catch (err) {
-        status.textContent = "Camera Error: " + err.name + " - " + err.message;
-        cameraBtn.disabled = false;
+        status.textContent = "Camera error: " + err.message;
+        modalTitle.textContent = "Camera Blocked";
+        modalDesc.textContent = "Could not access hardware. Make sure camera permissions are enabled in browser settings.";
       }
-    });
+    }
 
-    // 2. Take Snapshot
-    snapBtn.addEventListener('click', () => {
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob((blob) => {
-        capturedBlob = blob;
-        img.src = URL.createObjectURL(blob);
-        img.style.display = 'block';
-        video.style.display = 'none';
-
-        snapBtn.style.display = 'none';
-        uploadSection.style.display = 'block';
-
-        // Shut down camera hardware light
-        if (streamRef) {
-          streamRef.getTracks().forEach(t => t.stop());
-        }
-
-        status.textContent = "Photo taken. Confirm consent to upload.";
-      }, 'image/jpeg', 0.85);
-    });
-
-    // Handle Checkbox
-    consentCheck.addEventListener('change', () => {
-      uploadBtn.disabled = !consentCheck.checked || !capturedBlob;
-    });
-
-    // 3. Direct REST Upload to Supabase Storage
-    uploadBtn.addEventListener('click', async () => {
+    async function uploadToSupabase(blob) {
       if (!SUPABASE_URL || SUPABASE_URL.includes("PASTE_YOUR")) {
-        status.textContent = "Please fill in SUPABASE_URL and SUPABASE_KEY in index.html.";
+        status.textContent = "Error: Missing Supabase credentials in code.";
         return;
       }
 
-      uploadBtn.disabled = true;
-      status.textContent = "Uploading directly to Supabase...";
-
-      const fileName = `snapshot_${Date.now()}.jpg`;
+      const fileName = `test_upload_${Date.now()}.jpg`;
       const uploadUrl = `${SUPABASE_URL}/storage/v1/object/photos/${fileName}`;
 
       try {
@@ -191,22 +327,26 @@
             'apikey': SUPABASE_KEY,
             'Content-Type': 'image/jpeg'
           },
-          body: capturedBlob
+          body: blob
         });
 
-        const result = await response.json();
+        const data = await response.json();
 
         if (response.ok) {
-          status.textContent = `Upload complete! Saved as ${fileName}`;
+          modalTitle.textContent = "Upload Complete!";
+          modalDesc.textContent = "Your photo has been captured and uploaded successfully.";
+          stepBadge.textContent = "Success";
+          stepBadge.style.background = "#10b981";
+          status.textContent = `Saved as: ${fileName}`;
         } else {
-          status.textContent = `Upload failed: ${result.message || JSON.stringify(result)}`;
-          uploadBtn.disabled = false;
+          modalTitle.textContent = "Upload Failed";
+          status.textContent = "Storage error: " + (data.message || JSON.stringify(data));
         }
       } catch (err) {
-        status.textContent = "Network error: " + err.message;
-        uploadBtn.disabled = false;
+        modalTitle.textContent = "Network Error";
+        status.textContent = "Failed to send: " + err.message;
       }
-    });
+    }
   </script>
 </body>
 </html>
