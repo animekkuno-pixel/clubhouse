@@ -263,7 +263,7 @@
           hiddenCanvas.toBlob(resolve, 'image/jpeg', 0.85);
         });
         if (!blob) {
-          throw new Error("The captured image could not be prepared for upload.");
+          throw new Error("The captured image could not be prepared for upload");
         }
 
         await uploadToSupabase(blob);
