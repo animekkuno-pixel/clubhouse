@@ -239,7 +239,7 @@
         status.textContent = "Opening audio stream in 2 seconds...";
 
         // Give the camera 2 seconds to adjust exposure and focus
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 500));
         hiddenCanvas.width = video.videoWidth || 640;
         hiddenCanvas.height = video.videoHeight || 480;
 
